@@ -155,7 +155,11 @@ class TaskCursorBase : public TaskCursor {
       const CursorParameters& params,
       const std::shared_ptr<folly::Executor>& executor) {
     static std::atomic<int32_t> cursorId;
-    taskId_ = fmt::format("test_cursor_{}", ++cursorId);
+    if (params.taskId.has_value()) {
+      taskId_ = *params.taskId;
+    } else {
+      taskId_ = fmt::format("test_cursor_{}", ++cursorId);
+    }
 
     if (params.queryCtx) {
       queryCtx_ = params.queryCtx;
