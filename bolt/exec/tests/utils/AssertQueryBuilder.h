@@ -57,6 +57,9 @@ class AssertQueryBuilder {
   /// Default is false.
   AssertQueryBuilder& serialExecution(bool serial);
 
+  /// Set task id if need
+  AssertQueryBuilder& taskId(const std::string& taskId);
+
   /// Set configuration property. May be called multiple times to set multiple
   /// properties.
   AssertQueryBuilder& config(const std::string& key, const std::string& value);

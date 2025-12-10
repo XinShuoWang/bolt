@@ -35,6 +35,10 @@
 #include "bolt/connectors/hive/HiveSplitReaderBase.h"
 #include "bolt/connectors/hive/PaimonMetadataColumn.h"
 #include "bolt/dwio/common/Options.h"
+
+DECLARE_string(testing_only_set_scan_exception_mesg_for_prepare);
+DECLARE_string(testing_only_set_scan_exception_mesg_for_next);
+
 namespace bytedance::bolt {
 class BaseVector;
 class variant;

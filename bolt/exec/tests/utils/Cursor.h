@@ -33,6 +33,9 @@
 #include "bolt/core/PlanNode.h"
 #include "bolt/exec/Driver.h"
 #include "bolt/exec/Task.h"
+
+#include <optional>
+
 namespace bytedance::bolt::exec::test {
 
 /// Wait up to maxWaitMicros for all the task drivers to finish. The function
@@ -102,6 +105,8 @@ struct CursorParameters {
   /// If both 'queryConfigs' and 'queryCtx' are specified, the configurations
   /// in 'queryCtx' will be overridden by 'queryConfig'.
   std::unordered_map<std::string, std::string> queryConfigs;
+
+  std::optional<std::string> taskId;
 };
 
 class TaskQueue {

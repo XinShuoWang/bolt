@@ -29,10 +29,7 @@
  */
 
 #include "bolt/exec/TableScan.h"
-#include <folly/synchronization/Baton.h>
-#include <folly/synchronization/Latch.h>
-#include <re2/re2.h>
-#include <atomic>
+#include "bolt/common/base/Exceptions.h"
 #include "bolt/common/base/Fs.h"
 #include "bolt/common/base/tests/GTestUtils.h"
 #include "bolt/common/caching/AsyncDataCache.h"
@@ -41,6 +38,7 @@
 #include "bolt/connectors/hive/HiveConfig.h"
 #include "bolt/connectors/hive/HiveConnector.h"
 #include "bolt/connectors/hive/HiveDataSource.h"
+#include "bolt/core/QueryConfig.h"
 #include "bolt/dwio/common/tests/utils/DataFiles.h"
 #include "bolt/dwio/paimon/deletionvectors/DeletionFileReader.h"
 #include "bolt/exec/OutputBufferManager.h"
@@ -55,7 +53,13 @@
 #include "bolt/type/Timestamp.h"
 #include "bolt/type/Type.h"
 #include "bolt/type/tests/SubfieldFiltersBuilder.h"
-#include "folly/experimental/EventCount.h"
+
+#include <folly/experimental/EventCount.h>
+#include <folly/synchronization/Baton.h>
+#include <folly/synchronization/Latch.h>
+#include <re2/re2.h>
+#include <atomic>
+
 using namespace bytedance::bolt;
 using namespace bytedance::bolt::connector::hive;
 using namespace bytedance::bolt::core;
@@ -4477,4 +4481,172 @@ TEST_F(TableScanTest, orcDecimalFilter) {
   ASSERT_EQ(rows->size(), 1);
   auto amount = rows->childAt(1)->asFlatVector<int64_t>();
   ASSERT_TRUE(amount);
+}
+
+TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareDisable) {
+  // expect throw exception
+  std::string errorMsg = "testing throw exception when prepare";
+  try {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = errorMsg;
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+    auto iota = makeFlatVector<int32_t>(10, folly::identity);
+    auto data = makeRowVector({iota, makeRowVector({iota})});
+    auto rowType = asRowType(data->type());
+    auto file = TempFilePath::create();
+    writeToFile(file->path, {data});
+    auto plan = PlanBuilder()
+                    .tableScan(rowType, {}, "c0 < 5")
+                    .project({"c1.c0"})
+                    .planNode();
+    auto split = HiveConnectorSplitBuilder(file->path).build();
+    auto expected = makeRowVector(
+        {makeFlatVector<int32_t>(10, [](auto i) { return i % 5; })});
+    AssertQueryBuilder(plan).splits({split, split}).assertResults(expected);
+    BOLT_UNREACHABLE("Can't reach code");
+  } catch (const std::exception& e) {
+    ASSERT_TRUE(std::string(e.what()).find(errorMsg) != std::string::npos);
+  }
+}
+
+TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareAttempt3) {
+  // expect throw exception
+  std::string errorMsg = "testing throw exception when prepare";
+  try {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = errorMsg;
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+    auto iota = makeFlatVector<int32_t>(10, folly::identity);
+    auto data = makeRowVector({iota, makeRowVector({iota})});
+    auto rowType = asRowType(data->type());
+    auto file = TempFilePath::create();
+    writeToFile(file->path, {data});
+    auto plan = PlanBuilder()
+                    .tableScan(rowType, {}, "c0 < 5")
+                    .project({"c1.c0"})
+                    .planNode();
+    auto split = HiveConnectorSplitBuilder(file->path).build();
+    auto expected = makeRowVector(
+        {makeFlatVector<int32_t>(10, [](auto i) { return i % 5; })});
+    AssertQueryBuilder(plan)
+        .splits({split, split})
+        .config(core::QueryConfig::kIgnoreCorruptFiles, "true")
+        .config(
+            core::QueryConfig::kCanBeTreatedAsCorruptedFileExceptions,
+            errorMsg + "|")
+        .taskId("ATTEMPT_3")
+        .assertResults(expected);
+    BOLT_UNREACHABLE("Can't reach code");
+  } catch (const std::exception& e) {
+    ASSERT_TRUE(std::string(e.what()).find(errorMsg) != std::string::npos);
+  }
+}
+
+TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareCanIgnore) {
+  // can be ignore
+  std::string errorMsg = "testing throw exception when prepare";
+  FLAGS_testing_only_set_scan_exception_mesg_for_prepare = errorMsg;
+  FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+  auto iota = makeFlatVector<int32_t>(10, folly::identity);
+  auto data = makeRowVector({iota, makeRowVector({iota})});
+  auto rowType = asRowType(data->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->path, {data});
+  auto plan = PlanBuilder()
+                  .tableScan(rowType, {}, "c0 < 5")
+                  .project({"c1.c0"})
+                  .planNode();
+  auto split = HiveConnectorSplitBuilder(file->path).build();
+  auto expected =
+      makeRowVector({makeFlatVector<int32_t>(0, [](auto i) { return i % 5; })});
+  AssertQueryBuilder(plan)
+      .splits({split, split})
+      .config(core::QueryConfig::kIgnoreCorruptFiles, "true")
+      .config(
+          core::QueryConfig::kCanBeTreatedAsCorruptedFileExceptions,
+          errorMsg + "|")
+      .taskId("ATTEMPT_9")
+      .assertResults(expected);
+}
+
+TEST_F(TableScanTest, ignoreCorruptFileWhenNextDisable) {
+  FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+  std::string errorMsg = "ignore corrupt file when next";
+  FLAGS_testing_only_set_scan_exception_mesg_for_next = errorMsg;
+  try {
+    auto iota = makeFlatVector<int32_t>(10, folly::identity);
+    auto data = makeRowVector({iota, makeRowVector({iota})});
+    auto rowType = asRowType(data->type());
+    auto file = TempFilePath::create();
+    writeToFile(file->path, {data});
+    auto plan = PlanBuilder()
+                    .tableScan(rowType, {}, "c0 < 5")
+                    .project({"c1.c0"})
+                    .planNode();
+    auto split = HiveConnectorSplitBuilder(file->path).build();
+    auto expected = makeRowVector(
+        {makeFlatVector<int32_t>(10, [](auto i) { return i % 5; })});
+    AssertQueryBuilder(plan)
+        .splits({split, split})
+        .taskId("ATTEMPT_9")
+        .assertResults(expected);
+    BOLT_UNREACHABLE("Can't reach code");
+  } catch (const std::exception& e) {
+    ASSERT_TRUE(std::string(e.what()).find(errorMsg) != std::string::npos);
+  }
+}
+
+TEST_F(TableScanTest, ignoreCorruptFileWhenNextAttempt3) {
+  FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+  std::string errorMsg = "ignore corrupt file when next";
+  FLAGS_testing_only_set_scan_exception_mesg_for_next = errorMsg;
+  try {
+    auto iota = makeFlatVector<int32_t>(10, folly::identity);
+    auto data = makeRowVector({iota, makeRowVector({iota})});
+    auto rowType = asRowType(data->type());
+    auto file = TempFilePath::create();
+    writeToFile(file->path, {data});
+    auto plan = PlanBuilder()
+                    .tableScan(rowType, {}, "c0 < 5")
+                    .project({"c1.c0"})
+                    .planNode();
+    auto split = HiveConnectorSplitBuilder(file->path).build();
+    auto expected = makeRowVector(
+        {makeFlatVector<int32_t>(10, [](auto i) { return i % 5; })});
+    AssertQueryBuilder(plan)
+        .splits({split, split})
+        .config(core::QueryConfig::kIgnoreCorruptFiles, "true")
+        .config(
+            core::QueryConfig::kCanBeTreatedAsCorruptedFileExceptions,
+            errorMsg + "|")
+        .taskId("ATTEMPT_3")
+        .assertResults(expected);
+    BOLT_UNREACHABLE("Can't reach code");
+  } catch (const std::exception& e) {
+    ASSERT_TRUE(std::string(e.what()).find(errorMsg) != std::string::npos);
+  }
+}
+
+TEST_F(TableScanTest, ignoreCorruptFileWhenNextCanIgnore) {
+  FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+  std::string errorMsg = "ignore corrupt file when next";
+  FLAGS_testing_only_set_scan_exception_mesg_for_next = errorMsg;
+  auto iota = makeFlatVector<int32_t>(10, folly::identity);
+  auto data = makeRowVector({iota, makeRowVector({iota})});
+  auto rowType = asRowType(data->type());
+  auto file = TempFilePath::create();
+  writeToFile(file->path, {data});
+  auto plan = PlanBuilder()
+                  .tableScan(rowType, {}, "c0 < 5")
+                  .project({"c1.c0"})
+                  .planNode();
+  auto split = HiveConnectorSplitBuilder(file->path).build();
+  auto expected =
+      makeRowVector({makeFlatVector<int32_t>(0, [](auto i) { return i % 5; })});
+  AssertQueryBuilder(plan)
+      .splits({split, split})
+      .config(core::QueryConfig::kIgnoreCorruptFiles, "true")
+      .config(
+          core::QueryConfig::kCanBeTreatedAsCorruptedFileExceptions,
+          errorMsg + "|")
+      .taskId("ATTEMPT_9")
+      .assertResults(expected);
 }

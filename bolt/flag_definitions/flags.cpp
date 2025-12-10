@@ -121,3 +121,12 @@ DEFINE_int32(
     "shuffle_zstd_compression_level");
 
 DEFINE_bool(bolt_ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
+
+DEFINE_string(
+    testing_only_set_scan_exception_mesg_for_prepare,
+    "",
+    "Only used in testing env");
+DEFINE_string(
+    testing_only_set_scan_exception_mesg_for_next,
+    "",
+    "Only used in testing env");
