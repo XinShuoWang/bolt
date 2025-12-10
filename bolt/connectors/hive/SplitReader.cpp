@@ -244,6 +244,13 @@ void SplitReader::prepareSplit(
   baseReader_ = dwio::common::getReaderFactory(baseReaderOpts_.getFileFormat())
                     ->createReader(std::move(baseFileInput), baseReaderOpts_);
 
+  // only for testing
+  if (UNLIKELY(
+          !FLAGS_testing_only_set_scan_exception_mesg_for_prepare.empty())) {
+    throw std::runtime_error(
+        FLAGS_testing_only_set_scan_exception_mesg_for_prepare);
+  }
+
   // Note that this doesn't apply to Hudi tables.
   emptySplit_ = false;
   if (baseReader_->numberOfRows() == 0) {
@@ -460,7 +467,15 @@ uint64_t SplitReader::next(int64_t size, VectorPtr& output) {
   if (paimonDeletionFileReader_) {
     return nextWithPaimonDeletionVector(size, output);
   }
-  return baseRowReader_->next(size, output);
+  auto actualReadSize = baseRowReader_->next(size, output);
+
+  // only for testing
+  if (UNLIKELY(!FLAGS_testing_only_set_scan_exception_mesg_for_next.empty())) {
+    throw std::runtime_error(
+        FLAGS_testing_only_set_scan_exception_mesg_for_next);
+  }
+
+  return actualReadSize;
 }
 
 void SplitReader::resetFilterCaches() {
