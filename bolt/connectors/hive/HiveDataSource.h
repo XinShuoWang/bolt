@@ -38,9 +38,6 @@
 #include "bolt/connectors/hive/PaimonConnectorSplit.h"
 #include "bolt/connectors/hive/SplitReader.h"
 #include "bolt/connectors/hive/TableHandle.h"
-#ifdef BOLT_ENABLE_HDFS
-#include "bolt/connectors/hive/storage_adapters/hdfs/StorageException.h"
-#endif
 #include "bolt/core/QueryConfig.h"
 #include "bolt/dwio/common/BufferedInput.h"
 #include "bolt/dwio/common/Reader.h"
@@ -226,19 +223,8 @@ class HiveDataSource : public DataSource {
 
   std::unique_ptr<dwio::common::RuntimeStatistics> runtimeStats_;
 
-  // ignore corrupt file
   int64_t ignoredFileSizes_{0};
-  bool ignoreCorruptFiles_{false};
-#ifdef BOLT_ENABLE_HDFS
-  int64_t taskMaxFailures_{0};
-  inline static std::mutex canIgnoredExceptionsMutex_;
-  inline static std::vector<std::string> canIgnoredExceptions_{};
-  inline const static std::set<filesystems::StorageException::StorageErrorType>
-      kMustIgnoredExceptions{
-          filesystems::StorageException::StorageErrorType::HdfsIOException,
-          filesystems::StorageException::StorageErrorType::
-              MissingBlockException};
-#endif
+
   int32_t parquetRepDefMemoryLimit_{16UL << 20};
   int32_t decodeRepDefPageCount_{10};
 };
