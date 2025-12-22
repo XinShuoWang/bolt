@@ -62,14 +62,6 @@ class IgnoreCorruptFileHelper {
       enrichExceptionSetFromConf(
           userDefineIgnoreExceptions, userDefinedSet_, inTestEnv);
     }
-    std::cout << fmt::format(
-                     "taskMaxFailures_ is {}, enableIgnoreCorruptFiles_ is {},"
-                     " userDefineIgnoreExceptions is {}, inTestEnv is {}",
-                     taskMaxFailures_,
-                     enableIgnoreCorruptFiles_,
-                     userDefineIgnoreExceptions,
-                     inTestEnv)
-              << std::endl;
     hasInitialized_ = true;
   }
   static bool isIgnoreCorruptFilesEnabled() {
