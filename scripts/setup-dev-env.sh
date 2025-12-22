@@ -30,6 +30,28 @@ CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 set -eu
 
+function check_basic_tools() {
+    local tools=("wget" "make" "cmake" "ninja")
+    local all_installed=true
+    
+    for tool in "${tools[@]}"; do
+        if command -v "$tool" >/dev/null 2>&1; then
+            printf "✅ Already installed $tool\n"
+        else
+            printf "❌ Not installed $tool\n"
+            all_installed=false
+        fi
+    done
+    
+    if ! $all_installed; then
+        echo "Bolt require basic tools like ${tools[@]} been installed, please install missing tools!"
+        return 1
+    else
+        echo "All required tools have been installed!"
+        return 0
+    fi
+}
+
 function check_compiler() {
     if command -v gcc &> /dev/null; then
         gcc_version=$(gcc -dumpversion)
@@ -73,6 +95,7 @@ function check_conan() {
     sed -i 's/gnu14/gnu17/g' ${CONAN_HOME}/profiles/default
 }
 
+check_basic_tools
 check_compiler
 install_python_dep
 check_conan

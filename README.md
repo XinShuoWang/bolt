@@ -47,6 +47,12 @@ Bolt is designed as a seamless acceleration layer that requires minimum code cha
 
 ## Getting Started
 
+### Get the Bolt Source
+```shell
+git clone https://github.com/bytedance/bolt.git
+cd bolt
+```
+
 ### Using Conan as the package manager
 [Conan](https://conan.io/) is an open source and multi-platform package manager.
 We provide scripts to help developers setup and install Bolt dependencies.
@@ -56,12 +62,6 @@ scripts/setup-dev-env.sh
 ```
 
 This script only exports conan recipes to local cache. For the first time, dependencies will be built from source and installed into local cache. You can setup your own [conan server](https://docs.conan.io/2/reference/conan_server.html#conan-server) to accelerate building.
-
-### Get the Bolt Source
-```shell
-git clone https://github.com/bytedance/bolt.git
-cd bolt
-```
 
 ### Building Bolt
 
