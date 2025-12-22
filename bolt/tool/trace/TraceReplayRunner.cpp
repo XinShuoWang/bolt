@@ -278,6 +278,9 @@ void TraceReplayRunner::init() {
 #ifdef BOLT_ENABLE_ABFS
   filesystems::abfs::registerAbfsFileSystem();
 #endif
+#ifdef BOLT_ENABLE_TOS
+  filesystems::registerTosFileSystem();
+#endif
 
   dwio::common::registerFileSinks();
   dwrf::registerDwrfReaderFactory();

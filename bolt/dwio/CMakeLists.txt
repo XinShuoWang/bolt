@@ -48,6 +48,10 @@ add_subdirectory(common)
 add_subdirectory(catalog)
 add_subdirectory(dwrf)
 add_subdirectory(orc)
-add_subdirectory(txt)
-add_subdirectory(parquet)
+
+# Use oss parquet reader/writer in Bolt-oss
+if(NOT ${BOLT_ENABLE_BYTEDANCE_INTERNAL})
+    add_subdirectory(parquet)
+endif()
+
 add_subdirectory(paimon)

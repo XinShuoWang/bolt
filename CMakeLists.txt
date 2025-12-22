@@ -144,7 +144,13 @@ option(BOLT_ENABLE_ABFS "Build Abfs Connector" OFF)
 option(BOLT_ENABLE_HDFS "Build Hdfs Connector" ON)
 option(BOLT_USE_ARROW_HDFS "Build Arrow Hdfs FileSystem Implement" ON)
 
+# Bytedance Internal File Systems
+option(BOLT_ENABLE_CFS "Build Cfs Connector" OFF)
+option(BOLT_ENABLE_TOS "Build Tos Connector" OFF)
+option(BOLT_ENABLE_PROTON "Build Proton Connector" OFF)
+
 option(BOLT_ENABLE_PARQUET "Enable Parquet support" OFF)
+option(BOLT_ENABLE_LANCE "Enable LanceDB support" OFF)
 option(BOLT_ENABLE_ORC "Enable ORC support" OFF)
 option(BOLT_ENABLE_TXT "Enable TXT read support" OFF)
 option(BOLT_ENABLE_ARROW "Enable Arrow support" OFF)
@@ -167,6 +173,7 @@ option(BOLT_ON_TCE "Build Bolt on Bytedance TCE Environment" OFF)
 option(BOLT_ENABLE_TBB "Enable oneTBB support" OFF)
 option(BOLT_ENABLE_TORCH "Enable torch script support" OFF)
 option(BOLT_ENABLE_CUDF "Enable cuDF support" OFF)
+option(BOLT_ENABLE_BYTEDANCE_INTERNAL "Enable bytedance internal features" OFF)
 
 if(BOLT_ENABLE_SPARK_COMPATIBLE)
   set(SPARK_VERSION
@@ -196,6 +203,10 @@ option(BOLT_FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang 
 option(KERNEL_SUPPORTS_IO_URING "IO_URING is supported by Linux kernel" ON)
 
 option(BOLT_ON_TCE "Build Bolt on Bytedance TCE Environment" OFF)
+
+if(NOT BOLT_ENABLE_BYTEDANCE_INTERNAL AND (BOLT_ENABLE_CFS OR BOLT_ENABLE_TOS OR BOLT_ENABLE_PROTON))
+  message(FATAL_ERROR "Cannot build CFS or TOS or PROTON on oss")
+endif()
 
 if(${BOLT_ON_TCE})
   set(BOLT_ENABLE_METRICS ON)
@@ -386,6 +397,29 @@ if(BOLT_ENABLE_HDFS)
   if(BOLT_USE_ARROW_HDFS)
     find_package(Arrow REQUIRED)
   endif()
+  if(BOLT_ENABLE_BYTEDANCE_INTERNAL)
+    set(LIBHDFS3 hdfs_client::hdfs_client)
+  else()
+    find_package(Arrow REQUIRED)
+  endif()
+  add_definitions(-DBOLT_ENABLE_HDFS3)
+endif()
+
+if(BOLT_ENABLE_TOS)
+  add_definitions(-DBOLT_ENABLE_TOS)
+endif()
+
+if(BOLT_ENABLE_CFS)
+  set(CFS cfs_client::cfs_client)
+  add_definitions(-DBOLT_ENABLE_CFS)
+endif()
+
+if(BOLT_ENABLE_TOS)
+  add_definitions(-DBOLT_ENABLE_TOS)
+endif()
+
+if(BOLT_ENABLE_PROTON)
+  add_definitions(-DBOLT_ENABLE_PROTON)
 endif()
 
 if(BOLT_ENABLE_PARQUET)
@@ -405,6 +439,11 @@ endif()
 if(BOLT_ENABLE_TXT)
   add_definitions(-DBOLT_ENABLE_TXT)
   # TXT reader requires Apache Arrow CSV reader, which are included in Arrow.
+  set(BOLT_ENABLE_ARROW ON)
+endif()
+
+if(BOLT_ENABLE_LANCE)
+  add_definitions(-DBOLT_ENABLE_LANCE)
   set(BOLT_ENABLE_ARROW ON)
 endif()
 
@@ -618,6 +657,11 @@ if(KERNEL_SUPPORTS_IO_URING)
   add_definitions(-DIO_URING_SUPPORTED)
 endif()
 
+if(BOLT_ENABLE_BYTEDANCE_INTERNAL)
+  message("BOLT_ENABLE_BYTEDANCE_INTERNAL is enabled")
+  add_definitions(-DBYTDANCE_INTERNAL)
+endif()
+
 if(DEFINED FOLLY_BENCHMARK_STATIC_LIB)
   set(FOLLY_BENCHMARK ${FOLLY_BENCHMARK_STATIC_LIB} GTest::gtest GTest::gtest_main)
 else()
@@ -701,6 +745,9 @@ find_package(fmt CONFIG REQUIRED)
 
 
 include_directories(SYSTEM bolt)
+if(${BOLT_ENABLE_BYTEDANCE_INTERNAL})
+  include_directories(bytedance_internal)
+endif()
 
 # these were previously vendored in third-party/
 if(NOT BOLT_DISABLE_GOOGLETEST)
@@ -777,8 +824,30 @@ if(${BOLT_ENABLE_SUBSTRAIT})
   )
 endif()
 
+if(${BOLT_ENABLE_BYTEDANCE_INTERNAL})
+  install(
+          DIRECTORY "${CMAKE_SOURCE_DIR}/bytedance_internal/bolt" # source directory
+          DESTINATION "include" # target directory
+          FILES_MATCHING # install only matched files
+          # PATTERN "test" EXCLUDE
+          PATTERN "benchmarks" EXCLUDE
+          PATTERN "benchmark" EXCLUDE
+          PATTERN "*.h" # select header files
+          PATTERN "*.hpp" # select header files
+  )
+endif()
+
 file(GLOB_RECURSE SHARED_LIBS "${CMAKE_BINARY_DIR}/bolt/*${CMAKE_SHARED_LIBRARY_SUFFIX}")
 file(GLOB_RECURSE STATIC_LIBS "${CMAKE_BINARY_DIR}/bolt/*${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+if(${BOLT_ENABLE_BYTEDANCE_INTERNAL})
+  file(GLOB_RECURSE BYTDANCE_INTERNAL_SHARED_LIBS
+          "${CMAKE_BINARY_DIR}/bytedance_internal/*${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  file(GLOB_RECURSE BYTDANCE_INTERNAL_STATIC_LIBS
+          "${CMAKE_BINARY_DIR}/bytedance_internal/*${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  message(STATUS "BYTDANCE_INTERNAL_STATIC_LIBS: ${BYTDANCE_INTERNAL_SHARED_LIBS}")
+  list(APPEND ALL_LIBS ${BYTDANCE_INTERNAL_SHARED_LIBS} ${BYTDANCE_INTERNAL_STATIC_LIBS})
+endif()
 
 list(APPEND ALL_LIBS ${SHARED_LIBS} ${STATIC_LIBS})
 
@@ -859,3 +928,8 @@ function(specialize_template output_var template_file)
 endfunction()
 
 add_subdirectory(bolt)
+
+if(${BOLT_ENABLE_BYTEDANCE_INTERNAL})
+  add_subdirectory(bytedance_internal)
+  include_directories(SYSTEM bytedance_internal)
+endif()

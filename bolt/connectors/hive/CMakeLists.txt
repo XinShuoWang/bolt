@@ -69,6 +69,13 @@ endif()
 
 set(ENABLED_FILESYSTEMS "")
 
+if(BOLT_ENABLE_LANCE)
+  list(APPEND enabled_dwio_formats
+          bolt_dwio_lance_reader
+          bolt_dwio_lance_writer
+  )
+endif()
+
 if(BOLT_ENABLE_S3)
   list(APPEND ENABLED_FILESYSTEMS "bolt_s3fs")
 endif()
@@ -80,6 +87,9 @@ if(BOLT_ENABLE_HDFS)
 endif()
 if(BOLT_ENABLE_ABFS)
   list(APPEND ENABLED_FILESYSTEMS "bolt_abfs")
+endif()
+if(BOLT_ENABLE_TOS)
+  list(APPEND enabled_filesystems "bolt_tos")
 endif()
 
 target_link_libraries(
@@ -99,6 +109,18 @@ target_link_libraries(
          bolt_hive_partition_function
          arrow::arrow
 )
+
+if(BOLT_ENABLE_PROTON)
+  find_package(JNI REQUIRED)
+  target_link_libraries(bolt_hive_connector PUBLIC ${JNI_LIBRARIES})
+endif()
+if(BOLT_ENABLE_PARQUET AND ${BOLT_ENABLE_BYTEDANCE_INTERNAL})
+  target_link_libraries(bolt_hive_connector PUBLIC bolt_dwio_parquet_encryption)
+endif()
+if(BOLT_ENABLE_LANCE)
+  target_link_libraries(bolt_hive_connector PUBLIC bolt_dwio_lance_reader
+          bolt_dwio_lance_writer)
+endif()
 
 add_library(bolt_hive_partition_function HivePartitionFunction.cpp)
 

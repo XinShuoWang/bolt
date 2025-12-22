@@ -25,7 +25,7 @@
 # This modified file is released under the same license.
 # --------------------------------------------------------------------------
 
-.PHONY: all cmake build clean debug release unit submodules
+.PHONY: all cmake build clean debug release unit submodules bytedance-internal-submodule
 
 # ---------- Conan variables defination starts ----------
 # If built on SCM use date as version
@@ -43,6 +43,7 @@ ENABLE_COLOR ?= True
 ENABLE_CRC ?= False
 ENABLE_EXCEPTION_TRACE ?= True
 ENABLE_PERF ?= False
+ENABLE_CUDF ?= False
 
 ARCH := $(shell uname -m)
 ifneq (,$(filter $(ARCH), aarch64 arm64))
@@ -65,6 +66,7 @@ ENABLE_WALL ?= 1
 ENABLE_JEMALLOC_PROF ?= False
 ENABLE_COLOCATE ?= False
 ENABLE_META_SORT ?= False
+BYTEDANCE_INTERNAL_BUILD ?= True
 PROFILE=default
 
 GLUTEN_BOLT_OPTIONS:=" -o *:spark_compatible=True "
@@ -223,6 +225,12 @@ clang-format-check:
 	if grep -q 'warning' log.txt; then false; fi
 	@rm -f files.txt log.txt
 
+bytedance-internal-submodule:		#: Check out code for bolt submodule
+	git submodule sync --recursive
+	git submodule update --init --recursive
+
+submodules: bytedance-internal-submodule
+
 conan_build:
 	if [ ! -d "_build" ]; then \
 		mkdir _build; \
@@ -232,6 +240,8 @@ conan_build:
 	cd _build/${BUILD_TYPE} && \
 	echo " -o bolt/*:enable_hdfs=${ENABLE_HDFS} \
 	-o bolt/*:use_arrow_hdfs=${USE_ARROW_HDFS} \
+	-o bolt/*:enable_cudf=${ENABLE_CUDF} \
+	-o bolt/*:bytedance_internal_build=${BYTEDANCE_INTERNAL_BUILD} \
 	-o bolt/*:enable_s3=${ENABLE_S3} \
 	-o bolt/*:enable_asan=${ENABLE_ASAN} \
 	-o bolt/*:enable_perf=${ENABLE_PERF} \

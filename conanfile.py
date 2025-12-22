@@ -194,6 +194,14 @@ class BoltConan(ConanFile):
         "enable_torch": TorchOption.all(),
         "enable_perf": [True, False],
         "targets": ["ANY", None],
+
+        # bytedance internal build
+        "bytedance_internal_build": [True, False],
+        "enable_cudf": [True, False],
+        "enable_proton": [True, False],
+        "enable_tos": [True, False],
+        "enable_cfs": [True, False],
+        "enable_lance": [True, False],
     }
     default_options = {
         "shared": False,
@@ -227,9 +235,19 @@ class BoltConan(ConanFile):
         "io_uring_supported": True,
         "enable_torch": TorchOption().value,
         "enable_perf": False,
+
+        # bytedance internal build
+        "bytedance_internal_build": False,
+        "enable_cudf": False,
+        "enable_tos": False,
+        "enable_cfs": False,
+        "enable_proton": False,
+        "enable_lance": True,
     }
 
     FB_VERSION = "2022.10.31.00"
+
+    INTERNAL_HDFS_CLIENT_VERSION = "v1.9.25.38"
 
     # global compiler options
     BOLT_GLOABL_FLAGS = "-Werror=return-type"
@@ -258,6 +276,9 @@ class BoltConan(ConanFile):
                 cmd = f"-b {scm_branch} origin/{scm_branch}"
                 git.checkout(cmd)
 
+        # Fetch submodules
+        git.run("submodule update --init --recursive")
+
     def io_uring_supported(self):
         if not self.options.io_uring_supported:
             return False
@@ -280,11 +301,47 @@ class BoltConan(ConanFile):
         return False
 
     def requirements(self):
+        if self.options.get_safe("enable_cudf"):
+            self.requires("cudf/25.06")
+        if self.options.get_safe("bytedance_internal_build"):
+            self.requires('bytedance_metrics2/1.0.0', transitive_headers=True, transitive_libs=True)
+            self.requires("lzo/2.10")
+            if self.options.get_safe("enable_hdfs"):
+                self.requires(
+                    f"hdfs_client/{self.INTERNAL_HDFS_CLIENT_VERSION}",
+                    transitive_headers=True,
+                    transitive_libs=True,
+                )
+            if self.options.get_safe("enable_cfs"):
+                self.requires(
+                    "cfs_client/0.0.1", transitive_headers=True, transitive_libs=True
+                )
+            if self.options.get_safe("enable_proton"):
+                self.requires(
+                    "proton_client/0.0.1", transitive_headers=True, transitive_libs=True
+                )
+            if self.options.get_safe("enable_tos"):
+                self.requires(
+                    "tos_client/2.6.5", transitive_headers=True, transitive_libs=True
+                )
+            if self.options.get_safe("enable_lance"):
+                self.requires(
+                    "lance_file_ffi/0.4.0",
+                    transitive_headers=True,
+                    transitive_libs=True,
+                )
         protobuf_version = os.getenv("PROTOBUF_VERSION", "3.21.4")
         self.requires(
             f"folly/{self.FB_VERSION}", transitive_headers=True, transitive_libs=True
         )
-        self.requires("arrow/15.0.1-oss", transitive_headers=True, transitive_libs=True)
+        if self.options.get_safe("bytedance_internal_build"):
+            self.requires(
+                "arrow/15.0.dev6", transitive_headers=True, transitive_libs=True
+            )
+        else:
+            self.requires(
+                "arrow/15.0.1-oss", transitive_headers=True, transitive_libs=True
+            )
         if self.options.get_safe("enable_jit"):
             self.requires("llvm-core/13.0.0")
 
@@ -294,9 +351,10 @@ class BoltConan(ConanFile):
             )
             self.requires("aws-c-common/0.12.5", force=True)
         self.requires("simdjson/3.12.3", transitive_headers=True)
-        self.requires(
-            "sonic-cpp/1.0.2-fix", transitive_headers=True, transitive_libs=True
-        )
+        if self.options.get_safe("bytedance_internal_build"):
+            self.requires("sonic-cpp/0.1.11", transitive_headers=True, transitive_libs=True)
+        else:
+            self.requires("sonic-cpp/1.0.2-fix", transitive_headers=True, transitive_libs=True)
         self.requires(
             f"protobuf/{protobuf_version}",
             transitive_headers=True,
@@ -391,6 +449,10 @@ class BoltConan(ConanFile):
     def config_options(self):
         if self.options.get_safe("ldb_build"):
             self.options.enable_exception_trace = False
+        if not self.options.get_safe("bytedance_internal_build"):
+            self.options.rm_safe("enable_tos")
+            self.options.rm_safe("enable_cfs")
+            self.options.rm_safe("enable_proton")
 
     # Set default options of third parties here
     def configure(self):
@@ -503,6 +565,11 @@ class BoltConan(ConanFile):
 
         tc = CMakeToolchain(self, generator="Ninja")
 
+        is_bytedance_internal = self.options.get_safe("bytedance_internal_build")
+        tc.cache_variables["BOLT_ENABLE_BYTEDANCE_INTERNAL"] = (
+            "ON" if is_bytedance_internal else "OFF"
+        )
+
         tc.cache_variables["MAX_LINK_JOBS"] = num_link_job
 
         if str(self.settings.arch) in ["x86", "x86_64"]:
@@ -530,6 +597,11 @@ class BoltConan(ConanFile):
         else:
             tc.cache_variables["BOLT_ENABLE_TORCH"] = "OFF"
 
+        if self.options.get_safe("enable_cudf"):
+            tc.cache_variables["BOLT_ENABLE_CUDF"] = "ON"
+        else:
+            tc.cache_variables["BOLT_ENABLE_CUDF"] = "OFF"
+
         if self.options.enable_asan:
             tc.cache_variables["CMAKE_CXX_FLAGS"] += (
                 " -fsanitize=address -fno-omit-frame-pointer "
@@ -547,8 +619,11 @@ class BoltConan(ConanFile):
             "ON" if self.options.enable_orc else "OFF"
         )
 
+        tc.cache_variables["BOLT_ENABLE_LANCE"] = (
+            "ON" if self.options.enable_lance and is_bytedance_internal else "OFF"
+        )
         tc.cache_variables["BOLT_ENABLE_TXT"] = (
-            "ON" if self.options.enable_txt else "OFF"
+            "ON" if self.options.enable_txt and is_bytedance_internal else "OFF"
         )
         if self.options.get_safe("enable_jit"):
             tc.cache_variables["ENABLE_BOLT_JIT"] = "ON"
@@ -643,6 +718,12 @@ class BoltConan(ConanFile):
         tc.cache_variables["BOLT_ENABLE_S3"] = "OFF"
         if self.options.get_safe("enable_s3"):
             tc.cache_variables["BOLT_ENABLE_S3"] = "ON"
+        if self.options.get_safe("enable_tos"):
+            tc.cache_variables["BOLT_ENABLE_TOS"] = "ON"
+        if self.options.get_safe("enable_proton"):
+            tc.cache_variables["BOLT_ENABLE_PROTON"] = "ON"
+        if self.options.get_safe("enable_cfs"):
+            tc.cache_variables["BOLT_ENABLE_CFS"] = "ON"
 
         if self.options.enable_color:
             tc.cache_variables["BOLT_FORCE_COLORED_OUTPUT"] = "ON"
@@ -792,6 +873,19 @@ class BoltConan(ConanFile):
         )
         if self.options.get_safe("enable_s3"):
             self.cpp_info.requires.append("aws-c-common::aws-c-common")
+
+        if self.options.get_safe("bytedance_internal_build"):
+            self.cpp_info.requires.extend(
+                ["hdfs_client::hdfs_client", "bytedance_metrics2::bytedance_metrics2", "lzo::lzo"]
+            )
+            if self.options.get_safe("enable_lance"):
+                self.cpp_info.requires.extend(["lance_file_ffi::lance_file_ffi"])
+            if self.options.get_safe("enable_cfs"):
+                self.cpp_info.requires.extend(["cfs_client::cfs_client"])
+            if self.options.get_safe("enable_proton"):
+                self.cpp_info.requires.extend(["proton_client::proton_client"])
+            if self.options.get_safe("enable_tos"):
+                self.cpp_info.requires.extend(["tos_client::tos_client"])
 
     def _cmake_target_to_conan_pkgname(self, deps_list):
         if not isinstance(deps_list, list):

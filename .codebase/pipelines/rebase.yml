@@ -1,0 +1,13 @@
+name: Rebase from github
+trigger:
+    manual:
+    cron:
+      notification:
+        when: [ failure ]
+        to: [ "7595802602588114657" ]
+jobs:
+  rebase:
+    image: hub.byted.org/codebase/ci_debian_bullseye
+    steps:
+      - commands:
+          - bash .codebase/pipelines/scripts/rebase.sh

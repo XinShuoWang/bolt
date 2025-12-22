@@ -43,8 +43,10 @@ if(${ENABLE_BOLT_JIT})
   add_subdirectory(jit)
 endif()
 
-add_subdirectory(external/hdfs)
-include_directories(SYSTEM external)
+if(NOT BOLT_ENABLE_BYTEDANCE_INTERNAL)
+  add_subdirectory(external/hdfs)
+  include_directories(SYSTEM external)
+endif()
 
 # examples depend on expression
 if(${BOLT_ENABLE_EXAMPLES} AND ${BOLT_ENABLE_EXPRESSION})

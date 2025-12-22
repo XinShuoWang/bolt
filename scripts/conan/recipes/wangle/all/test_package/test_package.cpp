@@ -92,7 +92,7 @@ int main() {
   pipeline->addBack(prepender);
   pipeline->finalize();
 
-  folly::IOBufQueue queue;
+  folly::IOBufQueue queue{folly::IOBufQueue::cacheChainLength()};
   std::string frame;
   frame.push_back('\0');
   frame.push_back('\5');
