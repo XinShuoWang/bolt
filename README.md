@@ -53,7 +53,7 @@ git clone https://github.com/bytedance/bolt.git
 cd bolt
 ```
 
-### Using Conan as the package manager
+### Setup Develop Env
 [Conan](https://conan.io/) is an open source and multi-platform package manager.
 We provide scripts to help developers setup and install Bolt dependencies.
 
@@ -65,6 +65,8 @@ This script only exports conan recipes to local cache. For the first time, depen
 
 ### Building Bolt
 
+### Building Gluten with Bolt
+
 Run `make` in the root directory to compile the sources. For development, use
 `make debug` to build a non-optimized debug version, or `make release` to build
 an optimized version.  Use `make unittest` to build and run tests.
@@ -75,6 +77,16 @@ make release_spark
 
 # In main branch, by default, BUILD_VERSION is main.
 make release_spark BUILD_VERSION=main
+```
+
+### Build with Gluten(bolt-backend)
+Please ensure you have installed jdk maven curl
+```
+git clone -b add_bolt_backend https://github.com/WangGuangxin/gluten.git
+cd gluten
+make arrow
+make release
+make jar
 ```
 
 ### Importing Bolt as a library
