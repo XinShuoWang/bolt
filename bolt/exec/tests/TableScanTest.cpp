@@ -4475,3 +4475,90 @@ TEST_F(TableScanTest, orcDecimalFilter) {
   auto amount = rows->childAt(1)->asFlatVector<int64_t>();
   ASSERT_TRUE(amount);
 }
+
+TEST_F(TableScanTest, constantCompareWithCol) {
+  {
+    auto filePaths = makeFilePaths(1);
+    auto size = 300;
+    auto rowVector = makeRowVector(
+        {makeFlatVector<int32_t>(size, [](auto row) { return 100; }),
+         makeFlatVector<int32_t>(size, [](auto row) { return 300; })});
+
+    writeToFile(filePaths[0]->path, rowVector);
+    createDuckDbTable({rowVector});
+
+    std::string filter = "100 >= c0";
+
+    auto task = TableScanTest::assertQuery(
+        PlanBuilder(pool_.get())
+            .tableScan(ROW({"c0", "c1"}, {INTEGER(), INTEGER()}), {filter})
+            .planNode(),
+        filePaths,
+        "SELECT c0,c1 FROM tmp WHERE " + filter);
+
+    EXPECT_EQ(size, getTableScanStats(task).outputRows);
+  }
+  {
+    auto filePaths = makeFilePaths(1);
+    auto size = 300;
+    auto rowVector = makeRowVector(
+        {makeFlatVector<int32_t>(size, [](auto row) { return 100; }),
+         makeFlatVector<int32_t>(size, [](auto row) { return 300; })});
+
+    writeToFile(filePaths[0]->path, rowVector);
+    createDuckDbTable({rowVector});
+
+    std::string filter = "100 > c0";
+
+    auto task = TableScanTest::assertQuery(
+        PlanBuilder(pool_.get())
+            .tableScan(ROW({"c0", "c1"}, {INTEGER(), INTEGER()}), {filter})
+            .planNode(),
+        filePaths,
+        "SELECT c0,c1 FROM tmp WHERE " + filter);
+
+    EXPECT_EQ(0, getTableScanStats(task).outputRows);
+  }
+  {
+    auto filePaths = makeFilePaths(1);
+    auto size = 300;
+    auto rowVector = makeRowVector(
+        {makeFlatVector<int32_t>(size, [](auto row) { return 100; }),
+         makeFlatVector<int32_t>(size, [](auto row) { return 300; })});
+
+    writeToFile(filePaths[0]->path, rowVector);
+    createDuckDbTable({rowVector});
+
+    std::string filter = "100 <= c0";
+
+    auto task = TableScanTest::assertQuery(
+        PlanBuilder(pool_.get())
+            .tableScan(ROW({"c0", "c1"}, {INTEGER(), INTEGER()}), {filter})
+            .planNode(),
+        filePaths,
+        "SELECT c0,c1 FROM tmp WHERE " + filter);
+
+    EXPECT_EQ(size, getTableScanStats(task).outputRows);
+  }
+  {
+    auto filePaths = makeFilePaths(1);
+    auto size = 300;
+    auto rowVector = makeRowVector(
+        {makeFlatVector<int32_t>(size, [](auto row) { return 100; }),
+         makeFlatVector<int32_t>(size, [](auto row) { return 300; })});
+
+    writeToFile(filePaths[0]->path, rowVector);
+    createDuckDbTable({rowVector});
+
+    std::string filter = "100 < c0";
+
+    auto task = TableScanTest::assertQuery(
+        PlanBuilder(pool_.get())
+            .tableScan(ROW({"c0", "c1"}, {INTEGER(), INTEGER()}), {filter})
+            .planNode(),
+        filePaths,
+        "SELECT c0,c1 FROM tmp WHERE " + filter);
+
+    EXPECT_EQ(0, getTableScanStats(task).outputRows);
+  }
+}
