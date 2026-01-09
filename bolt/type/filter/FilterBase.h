@@ -1966,6 +1966,31 @@ class BytesValues final : public Filter, public IFilterWithValues<StringView> {
     return false;
   }
 
+  std::string toString() const final {
+    std::string str = fmt::format(
+        "BytesValues isSingleValue {} lower {}, upper {}",
+        isSingleValue_,
+        lower_,
+        upper_);
+    str += ", set is:<";
+    // folly::F14FastSet is unordered, so let's sort it at the beginning
+    std::vector<std::string> sortedVector(set_.begin(), set_.end());
+    std::sort(sortedVector.begin(), sortedVector.end());
+    for (const auto& s : sortedVector) {
+      str += s + ",";
+    }
+    str += ">, value is:<";
+    sortedVector.clear();
+    for (const auto& v : value_) {
+      sortedVector.emplace_back(std::string(v));
+    }
+    for (const auto& v : sortedVector) {
+      str += v + ",";
+    }
+    str += ">";
+    return str;
+  }
+
  private:
   std::string lower_;
   std::string upper_;
