@@ -33,11 +33,11 @@
 #include <memory>
 #include <optional>
 
-#include "velox/dwio/common/ScanSpec.h"
-#include "velox/dwio/common/Statistics.h"
-#include "velox/type/filter/NegatedFloatingPointValues.h"
+#include "bolt/dwio/common/ScanSpec.h"
+#include "bolt/dwio/common/Statistics.h"
+#include "bolt/type/filter/NegatedFloatingPointValues.h"
 
-namespace facebook::velox::common {
+namespace bytedance::bolt::common {
 
 TEST(ScanSpecTest, doubleColumnPruning) {
   std::optional<uint64_t> valueCount = 100;
@@ -47,8 +47,8 @@ TEST(ScanSpecTest, doubleColumnPruning) {
   std::optional<double> min = 0;
   std::optional<double> max = 1;
   std::optional<double> sum = std::nullopt;
-  using facebook::velox::common::NegatedFloatingPointValues;
-  using facebook::velox::dwio::common::DoubleColumnStatistics;
+  using bytedance::bolt::common::NegatedFloatingPointValues;
+  using bytedance::bolt::dwio::common::DoubleColumnStatistics;
   // min(col) = 0, max(col) = 1
   auto colStatics = std::make_unique<DoubleColumnStatistics>(
       valueCount, hasNull, rawSize, size, min, max, sum);
@@ -63,4 +63,4 @@ TEST(ScanSpecTest, doubleColumnPruning) {
   EXPECT_TRUE(expect);
 }
 
-} // namespace facebook::velox::common
+} // namespace bytedance::bolt::common

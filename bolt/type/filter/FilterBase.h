@@ -1984,6 +1984,7 @@ class BytesValues final : public Filter, public IFilterWithValues<StringView> {
     for (const auto& v : value_) {
       sortedVector.emplace_back(std::string(v));
     }
+    std::sort(sortedVector.begin(), sortedVector.end());
     for (const auto& v : sortedVector) {
       str += v + ",";
     }
