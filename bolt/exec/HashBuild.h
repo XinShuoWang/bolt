@@ -97,6 +97,9 @@ class HashBuild final : public Operator {
   }
 
   bool needsInput() const override {
+    if (reusedHashTableAddress_ != nullptr) {
+      return false;
+    }
     return !noMoreInput_;
   }
 
@@ -447,6 +450,8 @@ class HashBuild final : public Operator {
   bool isDREnabled_{false};
   int32_t maxHashTableBucketCount_{std::numeric_limits<int32_t>::max()};
   std::shared_ptr<RowFormatInfo> rowFormatInfo_{nullptr};
+
+  void* reusedHashTableAddress_;
 };
 
 inline std::ostream& operator<<(std::ostream& os, HashBuild::State state) {
