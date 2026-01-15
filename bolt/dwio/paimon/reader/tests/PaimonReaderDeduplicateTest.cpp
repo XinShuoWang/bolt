@@ -121,6 +121,11 @@ class PaimonReaderDeduplicateTest
 
 const std::string PaimonReaderDeduplicateTest::kHiveConnectorId = "test-hive";
 
+static std::unordered_map<std::string, RuntimeMetric> getTableScanRuntimeStats(
+    const std::shared_ptr<bytedance::bolt::exec::Task>& task) {
+  return task->taskStats().pipelineStats[0].operatorStats[0].runtimeStats;
+}
+
 TEST_F(PaimonReaderDeduplicateTest, insertAllUpdate) {
   filesystems::registerLocalFileSystem();
 
@@ -225,6 +230,7 @@ TEST_F(PaimonReaderDeduplicateTest, insertAllUpdate) {
   while (auto result = readTask->next()) {
     bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicNoUpdate) {
@@ -331,6 +337,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicNoUpdate) {
   while (auto result = readTask->next()) {
     bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicFirstUpdate) {
@@ -437,6 +444,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicFirstUpdate) {
   while (auto result = readTask->next()) {
     bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicLastUpdate) {
@@ -650,6 +658,7 @@ TEST_F(PaimonReaderDeduplicateTest, differentPrimaryKeys) {
   while (auto result = readTask->next()) {
     bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, multiplePrimaryKeys) {
@@ -757,6 +766,7 @@ TEST_F(PaimonReaderDeduplicateTest, multiplePrimaryKeys) {
   while (auto result = readTask->next()) {
     bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, multiplePrimaryKeysReverse) {
@@ -864,6 +874,7 @@ TEST_F(PaimonReaderDeduplicateTest, multiplePrimaryKeysReverse) {
   while (auto result = readTask->next()) {
     bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicIgnoreDeleteAll) {
@@ -960,6 +971,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicIgnoreDeleteAll) {
   while (auto result = readTask->next()) {
     BOLT_UNREACHABLE("All deleted produced results");
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicIgnoreLastDelete) {
@@ -1070,6 +1082,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicIgnoreLastDelete) {
     }
     // bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicIgnoreNonLastDelete) {
@@ -1176,6 +1189,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicIgnoreNonLastDelete) {
   while (auto result = readTask->next()) {
     bytedance::bolt::test::assertEqualVectors(expected, result);
   }
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicNoIgnoreLastDelete) {
@@ -1283,6 +1297,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicNoIgnoreLastDelete) {
 
   result = readTask->next();
   BOLT_CHECK_NULL(result);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicMultipleBatchesAllUpdate) {
@@ -1415,6 +1430,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicMultipleBatchesAllUpdate) {
   }
 
   bytedance::bolt::test::assertEqualVectors(expected, combined);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicMultipleBatchesNoUpdate) {
@@ -1547,6 +1563,7 @@ TEST_F(PaimonReaderDeduplicateTest, basicMultipleBatchesNoUpdate) {
   }
 
   bytedance::bolt::test::assertEqualVectors(expected, combined);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderDeduplicateTest, basicMultipleBatches) {
@@ -1751,6 +1768,7 @@ _KEY_a  _SEQUENCE_NUMBER  _VALUE_KIND      a      b
   }
 
   bytedance::bolt::test::assertEqualVectors(expected, combined);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 } // namespace

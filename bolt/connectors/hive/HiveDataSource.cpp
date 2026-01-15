@@ -687,7 +687,8 @@ void HiveDataSource::addSplit(
       std::move(sequenceNumberIndices),
       rowkindFieldIndex,
       std::move(valueIndices),
-      tableParameters);
+      tableParameters,
+      ioStats_);
 
   readerOutputType_ = oldReaderOutputType;
 }
@@ -904,6 +905,9 @@ std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
        RuntimeCounter(ioStats_->ramHit().sum(), RuntimeCounter::Unit::kBytes)},
       {"totalScanTime",
        RuntimeCounter(ioStats_->totalScanTime(), RuntimeCounter::Unit::kNanos)},
+      {"totalMergeTime",
+       RuntimeCounter(
+           ioStats_->totalMergeTime(), RuntimeCounter::Unit::kNanos)},
       {"loadMetaDataTime",
        RuntimeCounter(
            ioStats_->loadFileMetaDataTimeNs(), RuntimeCounter::Unit::kNanos)},

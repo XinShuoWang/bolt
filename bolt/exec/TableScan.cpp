@@ -215,6 +215,8 @@ RowVectorPtr TableScan::getOutput() {
                 << succinctBytes(connectorStats.at("rawBytesRead").value)
                 << ", totalScanTime: "
                 << succinctNanos(connectorStats.at("totalScanTime").value)
+                << ", totalMergeTime: "
+                << succinctNanos(connectorStats.at("totalMergeTime").value)
                 << ", readBytes < 4K: [scantime: "
                 << succinctNanos(connectorStats.at("totalTimeRead<4k").value)
                 << ", readCnt: " << connectorStats.at("cntRead<4k").value

@@ -41,7 +41,8 @@ PaimonSplitReader::PaimonSplitReader(
     const std::vector<int>& sequenceNumberIndices,
     int valueKindIndex,
     const std::vector<int>& valueIndices,
-    const std::unordered_map<std::string, std::string>& tableParameters)
+    const std::unordered_map<std::string, std::string>& tableParameters,
+    const std::shared_ptr<io::IoStatistics> ioStats)
     : splitReaders_(std::move(splitReaders)),
       readerOutputType_(readerOutputType),
       primaryKeyIndices_(std::move(primaryKeyIndices)),
@@ -54,7 +55,8 @@ PaimonSplitReader::PaimonSplitReader(
       aggregateFunctions_(getAggregateFunctions()),
       aggregations_(getAggregations()),
       sequenceGroups_(getSequenceGroups()),
-      mergeEngine_(getMergeEngine()) {
+      mergeEngine_(getMergeEngine()),
+      ioStats_(ioStats) {
   for (const auto& splitReader : splitReaders_) {
     auto iterator = getIterator(splitReader.get());
     if (iterator && iterator->primaryKeys->size() > 0) {
@@ -369,6 +371,7 @@ uint64_t PaimonSplitReader::next(int64_t size, VectorPtr& output) {
 
   mergeEngine_->setResult(std::dynamic_pointer_cast<RowVector>(output));
 
+  auto mergetStartTime = getCurrentTimeMicro();
   while (!heap.empty()) {
     auto iterator = heap.top();
     VLOG(2) << "Values:" << iterator->values->toString(iterator->rowIndex)
@@ -392,6 +395,8 @@ uint64_t PaimonSplitReader::next(int64_t size, VectorPtr& output) {
   }
 
   mergeEngine_->finish();
+  auto mergeTime = (getCurrentTimeMicro() - mergetStartTime) * 1000;
+  ioStats_->incTotalMergeTime(mergeTime);
 
   return output->size();
 }

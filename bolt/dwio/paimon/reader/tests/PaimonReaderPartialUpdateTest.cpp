@@ -143,6 +143,11 @@ class PaimonReaderPartialUpdateTest
 
 const std::string PaimonReaderPartialUpdateTest::kHiveConnectorId = "test-hive";
 
+static std::unordered_map<std::string, RuntimeMetric> getTableScanRuntimeStats(
+    const std::shared_ptr<bytedance::bolt::exec::Task>& task) {
+  return task->taskStats().pipelineStats[0].operatorStats[0].runtimeStats;
+}
+
 TEST_F(PaimonReaderPartialUpdateTest, nonNullUpdate) {
   filesystems::registerLocalFileSystem();
 
@@ -280,6 +285,7 @@ TEST_F(PaimonReaderPartialUpdateTest, nonNullUpdate) {
   }
 
   BOLT_CHECK(nBatch > 0);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderPartialUpdateTest, sequenceGroupUpdate) {
@@ -457,6 +463,7 @@ TEST_F(PaimonReaderPartialUpdateTest, sequenceGroupUpdate) {
   }
 
   BOLT_CHECK(nBatch > 0);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderPartialUpdateTest, multipleSequenceGroupUpdate) {
@@ -633,6 +640,7 @@ TEST_F(PaimonReaderPartialUpdateTest, multipleSequenceGroupUpdate) {
   }
 
   BOLT_CHECK(nBatch > 0);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderPartialUpdateTest, sequenceGroupAggregateUpdate) {
@@ -821,6 +829,7 @@ TEST_F(PaimonReaderPartialUpdateTest, sequenceGroupAggregateUpdate) {
   }
 
   BOLT_CHECK(nBatch > 0);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderPartialUpdateTest, multipleSequenceGroupAggregateUpdate) {
@@ -1003,6 +1012,7 @@ TEST_F(PaimonReaderPartialUpdateTest, multipleSequenceGroupAggregateUpdate) {
   }
 
   BOLT_CHECK(nBatch > 0);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 TEST_F(PaimonReaderPartialUpdateTest, sequenceGroupDefaultAggregateUpdate) {
@@ -1189,6 +1199,7 @@ TEST_F(PaimonReaderPartialUpdateTest, sequenceGroupDefaultAggregateUpdate) {
   }
 
   BOLT_CHECK(nBatch > 0);
+  EXPECT_GT(getTableScanRuntimeStats(readTask)["totalMergeTime"].sum, 0);
 }
 
 } // namespace
