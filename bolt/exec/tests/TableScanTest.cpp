@@ -4484,6 +4484,10 @@ TEST_F(TableScanTest, orcDecimalFilter) {
 }
 
 TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareDisable) {
+  auto guard = folly::makeGuard([]() {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+  });
   // expect throw exception
   std::string errorMsg = "testing throw exception when prepare";
   try {
@@ -4509,6 +4513,10 @@ TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareDisable) {
 }
 
 TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareAttempt3) {
+  auto guard = folly::makeGuard([]() {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+  });
   // expect throw exception
   std::string errorMsg = "testing throw exception when prepare";
   try {
@@ -4541,6 +4549,10 @@ TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareAttempt3) {
 }
 
 TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareCanIgnore) {
+  auto guard = folly::makeGuard([]() {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+  });
   // can be ignore
   std::string errorMsg = "testing throw exception when prepare";
   FLAGS_testing_only_set_scan_exception_mesg_for_prepare = errorMsg;
@@ -4568,6 +4580,10 @@ TEST_F(TableScanTest, ignoreCorruptFileWhenPrepareCanIgnore) {
 }
 
 TEST_F(TableScanTest, ignoreCorruptFileWhenNextDisable) {
+  auto guard = folly::makeGuard([]() {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+  });
   FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
   std::string errorMsg = "ignore corrupt file when next";
   FLAGS_testing_only_set_scan_exception_mesg_for_next = errorMsg;
@@ -4595,6 +4611,10 @@ TEST_F(TableScanTest, ignoreCorruptFileWhenNextDisable) {
 }
 
 TEST_F(TableScanTest, ignoreCorruptFileWhenNextAttempt3) {
+  auto guard = folly::makeGuard([]() {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+  });
   FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
   std::string errorMsg = "ignore corrupt file when next";
   FLAGS_testing_only_set_scan_exception_mesg_for_next = errorMsg;
@@ -4626,6 +4646,10 @@ TEST_F(TableScanTest, ignoreCorruptFileWhenNextAttempt3) {
 }
 
 TEST_F(TableScanTest, ignoreCorruptFileWhenNextCanIgnore) {
+  auto guard = folly::makeGuard([]() {
+    FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
+    FLAGS_testing_only_set_scan_exception_mesg_for_next = "";
+  });
   FLAGS_testing_only_set_scan_exception_mesg_for_prepare = "";
   std::string errorMsg = "ignore corrupt file when next";
   FLAGS_testing_only_set_scan_exception_mesg_for_next = errorMsg;

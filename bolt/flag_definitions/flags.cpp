@@ -125,8 +125,8 @@ DEFINE_bool(bolt_ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
 DEFINE_string(
     testing_only_set_scan_exception_mesg_for_prepare,
     "",
-    "Only used in testing env");
+    "Only used in testing env. Throwing std::exception when call SplitReader::prepareSplit");
 DEFINE_string(
     testing_only_set_scan_exception_mesg_for_next,
     "",
-    "Only used in testing env");
+    "Only used in testing env. Throwing std::exception when call SplitReader::next");
