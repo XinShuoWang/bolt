@@ -19,8 +19,8 @@
 #include <fmt/core.h>
 #include <folly/Format.h>
 #include <glog/logging.h>
-#include <gtest/gtest.h>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <set>
 #include <string>
@@ -35,9 +35,7 @@ class IgnoreCorruptFileHelper {
       int64_t taskMaxFailures,
       bool enableIgnoreCorruptFiles,
       const std::string& userDefineIgnoreExceptions) {
-    const ::testing::TestInfo* test_info =
-        ::testing::UnitTest::GetInstance()->current_test_info();
-    bool inTestEnv = (test_info != nullptr);
+    bool inTestEnv = isInTestEnv();
     if (hasInitialized_ && !inTestEnv) {
       return;
     }
@@ -91,6 +89,10 @@ class IgnoreCorruptFileHelper {
   }
 
  private:
+  static bool isInTestEnv() {
+    return std::getenv("BOLT_IN_GTEST") != nullptr;
+  }
+
   static void enrichExceptionSetFromConf(
       std::string exceptionStr,
       std::vector<std::string>& exceptionKeyWords,
