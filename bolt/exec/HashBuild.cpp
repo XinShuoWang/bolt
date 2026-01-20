@@ -125,6 +125,8 @@ HashBuild::HashBuild(
     BOLT_CHECK_NOT_NULL(joinBridge_);
     joinBridge_->start();
 
+    addRuntimeStat("reusedHashTableAddress", RuntimeCounter(1));
+
     if (baseHashTable->joinHasNullKeys() && isAntiJoin(joinType_) &&
         nullAware_ && !joinNode_->filter()) {
       joinBridge_->setAntiJoinHasNullKeys();

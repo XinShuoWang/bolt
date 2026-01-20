@@ -28,12 +28,12 @@
  * --------------------------------------------------------------------------
  */
 
-#include <core/PlanNode.h>
+#include <fmt/format.h>
 #include <re2/re2.h>
 
-#include <fmt/format.h>
 #include "bolt/common/base/tests/GTestUtils.h"
 #include "bolt/common/testutil/TestValue.h"
+#include "bolt/core/PlanNode.h"
 #include "bolt/dwio/common/tests/utils/BatchMaker.h"
 #include "bolt/exec/HashBuild.h"
 #include "bolt/exec/HashJoinBridge.h"
@@ -48,6 +48,7 @@
 #include "bolt/exec/tests/utils/VectorTestUtil.h"
 #include "bolt/vector/fuzzer/VectorFuzzer.h"
 #include "folly/experimental/EventCount.h"
+
 using namespace bytedance::bolt;
 using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt::exec::test;
@@ -426,6 +427,11 @@ class HashJoinBuilder {
     return *this;
   }
 
+  HashJoinBuilder& reusedHashTableAddress(void* reusedHashTableAddress) {
+    reusedHashTableAddress_ = reusedHashTableAddress;
+    return *this;
+  }
+
   void run() {
     if (planNode_ != nullptr) {
       runTest(planNode_);
@@ -494,7 +500,8 @@ class HashJoinBuilder {
                   joinFilter_,
                   joinOutputLayout_,
                   joinType_,
-                  nullAware_)
+                  nullAware_,
+                  reusedHashTableAddress_)
               .capturePlanNode<core::HashJoinNode>(joinNode)
               .optionalProject(outputProjections_)
               .planNode();
@@ -759,6 +766,8 @@ class HashJoinBuilder {
   std::unordered_map<std::string, std::string> configs_;
 
   JoinResultsVerifier testVerifier_{};
+
+  void* reusedHashTableAddress_{nullptr};
 };
 
 class HashJoinTest : public HiveConnectorTestBase {
@@ -8324,6 +8333,75 @@ TEST_F(HashJoinTest, wrapLazyVectorInFilterAndOutput) {
       .referenceQuery(
           "SELECT t.c0, t.c1, t.c2, u.u_c1 FROM t inner join u on t.c0 = u.u_c0 and t.c1 < u.u_c1 + 1")
       .injectSpill(false)
+      .run();
+}
+
+TEST_F(HashJoinTest, boardcastOptimizeTest) {
+  auto probeVectors = makeBatches(1, [&](int32_t /*unused*/) {
+    return makeRowVector(
+        {makeFlatVector<int64_t>(1000, [](auto row) { return row; }),
+         makeFlatVector<int64_t>(1000, [](auto row) { return 996 + row; })});
+  });
+
+  std::vector<std::unique_ptr<VectorHasher>> hashers;
+  hashers.push_back(std::make_unique<VectorHasher>(BIGINT(), 0));
+
+  auto table = HashTable<false>::createForJoin(
+      std::move(hashers),
+      {}, /*dependentTypes*/
+      true /*allowDuplicates*/,
+      false /*hasProbedFlag*/,
+      BaseHashTable::HashMode::kArray,
+      1 /*minTableSizeForParallelJoinBuild*/,
+      pool(),
+      false,
+      true /*resued*/);
+
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+
+  auto storeInHashTable = [](RowContainer& rowContainer,
+                             const RowVectorPtr& data) {
+    std::vector<DecodedVector> decodedVectors;
+    for (auto& vector : data->children()) {
+      decodedVectors.emplace_back(*vector);
+    }
+
+    std::vector<char*> rows;
+    for (auto i = 0; i < data->size(); ++i) {
+      auto* row = rowContainer.newRow();
+
+      for (auto j = 0; j < decodedVectors.size(); ++j) {
+        rowContainer.store(decodedVectors[j], i, row, j);
+      }
+    }
+  };
+
+  storeInHashTable(*table->rows(), data);
+  table->prepareJoinTable({});
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(
+          1 /*reusedHashTableAddress can be set only when numDriver is 1*/)
+      .probeKeys({"c0"})
+      .probeVectors(std::move(probeVectors))
+      .buildKeys({"c0"})
+      .buildVectors({data} /*will create duckdb table from data*/)
+      .reusedHashTableAddress(table.get())
+      .joinOutputLayout({"c1"})
+      .referenceQuery("SELECT c1 from t, u WHERE t.c0=u.c0")
+      .checkSpillStats(false)
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        auto stats = task->taskStats();
+        for (auto& pipeline : stats.pipelineStats) {
+          for (auto op : pipeline.operatorStats) {
+            if (op.operatorType == "HashBuild") {
+              ASSERT_GT(op.runtimeStats["reusedHashTableAddress"].count, 0);
+            }
+          }
+        }
+      })
       .run();
 }
 
