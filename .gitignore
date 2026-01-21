@@ -332,7 +332,8 @@ conan.options
 .ccls
 .ccls-cache/*
 
-
 # makefile clang-format files
 files.txt
 log.txt
+
+bolt/version/version.h
