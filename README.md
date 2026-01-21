@@ -96,7 +96,8 @@ make release
 make jar
 ```
 
-#### Using Bolt as a third-party dependency in other system
+#### Building Bolt for other system
+You can use the `make release && make export_release` command to compile and export Bolt, and then use conan to reference Bolt. Below is a conanfile example that references Bolt as a third-party dependency.
 
 ```python
 # Take gluten for example:
